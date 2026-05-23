@@ -9,21 +9,48 @@ class Presence(commands.Cog):
         self.bot = bot
 
         self.activities = [
-            discord.Game(name="inside unsecured networks"),
+
+            # Playing
+            discord.Game(name="high quality audio"),
+            discord.Game(name="music across servers"),
+            discord.Game(name="beats 24/7"),
+            discord.Game(name="your favorite tracks"),
+
+            # Watching
             discord.Activity(
-                type=discord.ActivityType.watching, name="every connection"
+                type=discord.ActivityType.watching,
+                name="active voice channels",
             ),
             discord.Activity(
-                type=discord.ActivityType.listening, name="encrypted traffic"
+                type=discord.ActivityType.watching,
+                name="music queues grow",
             ),
             discord.Activity(
-                type=discord.ActivityType.playing, name="with reconnaissance systems"
+                type=discord.ActivityType.watching,
+                name="listeners vibe together",
             ),
-            discord.CustomActivity(name="Some traces never disappear."),
-            discord.CustomActivity(name="Monitoring exposed targets..."),
-            discord.CustomActivity(name="Threat surface detected."),
-            discord.CustomActivity(name="Nothing stays hidden forever."),
-            discord.CustomActivity(name="Powered by SYN606"),
+
+            # Listening
+            discord.Activity(
+                type=discord.ActivityType.listening,
+                name="lofi & chill beats",
+            ),
+            discord.Activity(
+                type=discord.ActivityType.listening,
+                name="community playlists",
+            ),
+            discord.Activity(
+                type=discord.ActivityType.listening,
+                name="songs requested by users",
+            ),
+
+            # Custom Status
+            discord.CustomActivity(name="🎵 Powered by DV-Music"),
+            discord.CustomActivity(name="🎶 Streaming nonstop audio"),
+            discord.CustomActivity(name="🎧 Your music companion"),
+            discord.CustomActivity(name="🔊 Crystal clear playback"),
+            discord.CustomActivity(name="📻 Now serving premium vibes"),
+            discord.CustomActivity(name="🎼 Music without limits"),
         ]
 
     async def cog_load(self):
@@ -34,7 +61,7 @@ class Presence(commands.Cog):
 
         self.rotate_presence.cancel()
 
-    # Safe interval for Discord API
+    # Rotate every hour
     @tasks.loop(hours=1)
     async def rotate_presence(self):
 
@@ -43,7 +70,8 @@ class Presence(commands.Cog):
 
         try:
             await self.bot.change_presence(
-                status=discord.Status.idle, activity=random.choice(self.activities)
+                status=discord.Status.online,
+                activity=random.choice(self.activities),
             )
 
         except Exception:

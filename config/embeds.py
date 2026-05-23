@@ -1,69 +1,148 @@
+from __future__ import annotations
+
 import discord
+
 from .emojis import EMOJIS
 
+
 LEVELS = {
-    "INFO": {"color": 0x2B2D31, "emoji": "announcement"},
-    "SUCCESS": {"color": 0x1F8B4C, "emoji": "success"},
-    "WARNING": {"color": 0xF0B232, "emoji": "warning"},
-    "ERROR": {"color": 0xDA373C, "emoji": "fail"},
-    "DEBUG": {"color": 0x5865F2, "emoji": "developer"},
-    "SYSTEM": {"color": 0x8E44AD, "emoji": "okay"},
+    "INFO": {
+        "color": 0x2B2D31,
+        "emoji": "announcement",
+    },
+
+    "SUCCESS": {
+        "color": 0x1F8B4C,
+        "emoji": "success",
+    },
+
+    "WARNING": {
+        "color": 0xF0B232,
+        "emoji": "warning",
+    },
+
+    "ERROR": {
+        "color": 0xDA373C,
+        "emoji": "fail",
+    },
+
+    "DEBUG": {
+        "color": 0x5865F2,
+        "emoji": "developer",
+    },
+
+    "SYSTEM": {
+        "color": 0x8E44AD,
+        "emoji": "okay",
+    },
+
+    # MUSIC SPECIFIC
+    "MUSIC": {
+        "color": 0x5865F2,
+        "emoji": "music",
+    },
 }
 
 
-def _safe(text, limit):
+# SAFE LIMITER
+def _safe(
+    text: str | None,
+    limit: int,
+):
+
     if not text:
         return None
-    return text if len(text) <= limit else text[:limit - 1] + "…"
+
+    return (
+        text
+        if len(text) <= limit
+        else text[: limit - 1] + "…"
+    )
 
 
-def _format_field(name, value, emoji=None):
+# FIELD FORMATTER
+def _format_field(
+    name,
+    value,
+    emoji=None,
+):
+
     if emoji:
         return f"{emoji} {name}", value
+
     return name, value
 
 
+# MAIN EMBED FACTORY
 def make_embed(
     *,
-    title,
-    description=None,
-    level="INFO",
+    title: str,
+    description: str | None = None,
+    level: str = "INFO",
     fields=None,
-    footer=None,
-    show_timestamp=True,
-    use_emoji=True,
-    highlight=False,      # highlight description (codeblock style)
-    compact=False,        # force inline layout
+    footer: str | None = None,
+    show_timestamp: bool = True,
+    use_emoji: bool = True,
+    highlight: bool = False,
+    compact: bool = False,
+    thumbnail: str | None = None,
+    image: str | None = None,
+    author=None
 ):
 
     level = level.upper()
-    config = LEVELS.get(level, LEVELS["INFO"])
-
+    config = LEVELS.get(
+        level,
+        LEVELS["INFO"],
+    )
     color = config["color"]
-    emoji = EMOJIS.get(config["emoji"]) if use_emoji else None
-
-    # title
-    title = f"{emoji} {title}" if emoji else title
-
-    # description styling
+    emoji = (
+        EMOJIS.get(config["emoji"])
+        if use_emoji
+        else None
+    )
+    # TITLE
+    title = (
+        f"{emoji} {title}"
+        if emoji
+        else title
+    )
+    # DESCRIPTION HIGHLIGHT
     if description and highlight:
         description = f"```{description}```"
-
     embed = discord.Embed(
         title=_safe(title, 256),
         description=_safe(description, 4096),
         color=color,
     )
-
-    # fields (clean modern layout)
+    # AUTHOR
+    if author:
+        name = author.get("name")
+        icon_url = author.get("icon_url")
+        embed.set_author(
+            name=_safe(name, 256),
+            icon_url=icon_url
+        )
+    # FIELDS
     if fields:
-        for name, value, inline in fields[:25]:
 
-            field_emoji = None
-            if isinstance(name, tuple):
-                name, field_emoji = name
+        for field in fields[:25]:
 
-            name, value = _format_field(name, value, field_emoji)
+            if len(field) == 3:
+                name, value, inline = field
+                field_emoji = None
+
+            elif len(field) == 4:
+                name, value, inline, field_emoji = field
+
+            else:
+                continue
+
+            name, value = _format_field(
+                name,
+                value,
+                field_emoji,
+            )
 
             embed.add_field(
                 name=_safe(name, 256),
@@ -71,10 +150,25 @@ def make_embed(
                 inline=inline if not compact else True,
             )
 
-    # subtle footer
-    if footer:
-        embed.set_footer(text=_safe(footer, 2048))
+    # THUMBNAIL
+    if thumbnail:
+        embed.set_thumbnail(
+            url=thumbnail,
+        )
 
+    # IMAGE
+    if image:
+        embed.set_image(
+            url=image,
+        )
+
+    # FOOTER
+    if footer:
+        embed.set_footer(
+            text=_safe(footer, 2048),
+        )
+
+    # TIMESTAMP
     if show_timestamp:
         embed.timestamp = discord.utils.utcnow()
 

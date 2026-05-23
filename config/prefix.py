@@ -2,7 +2,7 @@ from discord.ext import commands
 import discord
 import os
 
-PREFIX = (os.getenv("PREFIX") or "sus").strip()
+PREFIX = (os.getenv("PREFIX") or "dvm ").strip()
 
 if not PREFIX:
     PREFIX = "sus"

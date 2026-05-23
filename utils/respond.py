@@ -1,84 +1,211 @@
+from __future__ import annotations
+
+from typing import Any
+
+import discord
+
 from config.embeds import make_embed
 
 
 class Respond:
-    def __init__(self, ctx=None, interaction=None, channel=None):
+
+    def __init__(
+        self,
+        ctx=None,
+        interaction: discord.Interaction | None = None,
+        channel: discord.abc.Messageable | None = None,
+    ):
+
         self.ctx = ctx
         self.interaction = interaction
         self.channel = channel
 
-    async def _dispatch(self, embed=None, content=None, **kwargs):
-        try:
-            # ctx (prefix commands)
-            if self.ctx:
-                return await self.ctx.send(embed=embed, content=content, **kwargs)
-
-            # interaction (slash commands)
-            if self.interaction:
-                if self.interaction.response.is_done():
-                    return await self.interaction.followup.send(
-                        embed=embed, content=content, **kwargs
-                    )
-                return await self.interaction.response.send_message(
-                    embed=embed, content=content, **kwargs
-                )
-
-            # fallback (manual channel send)
-            if self.channel:
-                return await self.channel.send(embed=embed, content=content, **kwargs)
-
-        except Exception as e:
-            # last-resort fallback (no crash)
-            try:
-                if self.ctx:
-                    return await self.ctx.send(f"Error: {e}")
-                if self.channel:
-                    return await self.channel.send(f"Error: {e}")
-            except:  # noqa: E722
-                return None
-
-    async def send(
+    # INTERNAL DISPATCHER
+    async def _dispatch(
         self,
-        title=None,
-        description=None,
-        level="INFO",
-        fields=None,
-        footer=None,
-        content=None,
+        *,
+        embed: discord.Embed | None = None,
+        content: str | None = None,
         **kwargs,
     ):
-        embed = None
 
-        if title or description:
+        payload: dict[str, Any] = {}
+
+        # ONLY PASS VALUES IF THEY EXIST
+        if embed is not None:
+            payload["embed"] = embed
+
+        if content is not None:
+            payload["content"] = content
+
+        payload.update(kwargs)
+
+        try:
+
+            # PREFIX COMMANDS
+            if self.ctx:
+
+                return await self.ctx.send(**payload, )
+
+            # SLASH COMMANDS
+            if self.interaction:
+
+                if self.interaction.response.is_done():
+
+                    return await self.interaction.followup.send(**payload, )
+
+                return await self.interaction.response.send_message(
+                    **payload, )
+
+            # MANUAL CHANNEL SEND
+            if self.channel:
+
+                return await self.channel.send(**payload, )
+
+        except Exception as e:
+
+            # LAST-RESORT FALLBACK
             try:
+
+                error_text = f"Response Error: {e}"
+
+                if self.ctx:
+
+                    return await self.ctx.send(error_text, )
+
+                if self.channel:
+
+                    return await self.channel.send(error_text, )
+
+            except Exception:
+                return None
+
+    # GENERIC SEND
+    async def send(
+        self,
+        title: str | None = None,
+        description: str | None = None,
+        *,
+        level: str = "INFO",
+        fields=None,
+        footer: str | None = None,
+        content: str | None = None,
+        embed: discord.Embed | None = None,
+        **kwargs,
+    ):
+
+        try:
+
+            # AUTO BUILD EMBED
+            if embed is None and (title is not None
+                                  or description is not None):
+
                 embed = make_embed(
-                    title=title,
+                    title=title or "Response",
                     description=description,
                     level=level,
                     fields=fields,
                     footer=footer,
                     **kwargs,
                 )
-            except Exception as e:
-                # fallback if embed builder fails
-                content = content or f"{title}\n{description}\nError: {e}"
 
-        return await self._dispatch(embed=embed, content=content)
+        except Exception as e:
 
-    async def success(self, title, description=None, **kwargs):
-        return await self.send(title, description, level="SUCCESS", **kwargs)
+            # EMBED FAILURE FALLBACK
+            content = (content or (f"{title or ''}\n"
+                                   f"{description or ''}\n\n"
+                                   f"Error: {e}"))
 
-    async def error(self, title, description=None, **kwargs):
-        return await self.send(title, description, level="ERROR", **kwargs)
+            embed = None
 
-    async def warning(self, title, description=None, **kwargs):
-        return await self.send(title, description, level="WARNING", **kwargs)
+        return await self._dispatch(
+            embed=embed,
+            content=content,
+        )
 
-    async def info(self, title, description=None, **kwargs):
-        return await self.send(title, description, level="INFO", **kwargs)
+    # SUCCESS
+    async def success(
+        self,
+        title: str,
+        description: str | None = None,
+        **kwargs,
+    ):
 
-    async def loading(self, title="Processing...", **kwargs):
-        return await self.send(title, level="INFO", **kwargs)
+        return await self.send(
+            title=title,
+            description=description,
+            level="SUCCESS",
+            **kwargs,
+        )
 
-    async def raw(self, content, **kwargs):
-        return await self._dispatch(content=content, **kwargs)
+    # ERROR
+    async def error(
+        self,
+        title: str,
+        description: str | None = None,
+        **kwargs,
+    ):
+
+        return await self.send(
+            title=title,
+            description=description,
+            level="ERROR",
+            **kwargs,
+        )
+
+    # WARNING
+    async def warning(
+        self,
+        title: str,
+        description: str | None = None,
+        **kwargs,
+    ):
+
+        return await self.send(
+            title=title,
+            description=description,
+            level="WARNING",
+            **kwargs,
+        )
+
+    # INFO
+    async def info(
+        self,
+        title: str,
+        description: str | None = None,
+        **kwargs,
+    ):
+
+        return await self.send(
+            title=title,
+            description=description,
+            level="INFO",
+            **kwargs,
+        )
+
+    # LOADING
+    async def loading(
+        self,
+        title: str = "Loading...",
+        description: str | None = None,
+        **kwargs,
+    ):
+
+        return await self.send(
+            title=title,
+            description=description,
+            level="INFO",
+            **kwargs,
+        )
+
+    # RAW MESSAGE
+    async def raw(
+        self,
+        content: str,
+        **kwargs,
+    ):
+
+        return await self._dispatch(
+            content=content,
+            **kwargs,
+        )

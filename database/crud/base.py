@@ -17,9 +17,7 @@ T = TypeVar("T", bound=DeclarativeMeta)
 class BaseCRUD(Generic[T]):
     model: Type[T]
 
-    # ========================
     # INTERNAL EXECUTOR
-    # ========================
     @classmethod
     async def _run(cls, fn):
         if not hasattr(cls, "model") or cls.model is None:
@@ -47,9 +45,7 @@ class BaseCRUD(Generic[T]):
 
                 return None
 
-    # ========================
     # READ
-    # ========================
     @classmethod
     async def get(cls, **filters):
         async def run(session):
@@ -70,9 +66,7 @@ class BaseCRUD(Generic[T]):
 
         return await cls._run(run)
 
-    # ========================
     # CREATE
-    # ========================
     @classmethod
     async def create(cls, **data):
         async def run(session):
@@ -83,9 +77,7 @@ class BaseCRUD(Generic[T]):
 
         return await cls._run(run)
 
-    # ========================
     # UPDATE
-    # ========================
     @classmethod
     async def update(cls, filters: Dict[str, Any], data: Dict[str, Any]):
         async def run(session):
@@ -105,9 +97,7 @@ class BaseCRUD(Generic[T]):
 
         return await cls._run(run)
 
-    # ========================
     # DELETE
-    # ========================
     @classmethod
     async def delete(cls, **filters):
         async def run(session):
@@ -125,9 +115,7 @@ class BaseCRUD(Generic[T]):
 
         return await cls._run(run)
 
-    # ========================
     # UPSERT
-    # ========================
     @classmethod
     async def upsert(cls, filters: Dict[str, Any], data: Dict[str, Any]):
         async def run(session):

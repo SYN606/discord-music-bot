@@ -1,8 +1,6 @@
 import time
-
 import discord
 from discord.ext import commands
-
 from config.embeds import make_embed
 from config.emojis import EMOJIS
 from config.prefix import PREFIX
@@ -11,10 +9,8 @@ from config.prefix import PREFIX
 class BotMention(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
         # User cooldown cache
         self.cooldowns = {}
-
         # Cooldown duration
         self.cooldown_time = 15
 
@@ -41,37 +37,34 @@ class BotMention(commands.Cog):
 
         # Cooldown system
         now = time.time()
-
         last_used = self.cooldowns.get(message.author.id, 0)
-
         if now - last_used < self.cooldown_time:
             return
 
         self.cooldowns[message.author.id] = now
-
         embed = make_embed(
-            title="Imposter Framework",
+            title="DV-Music",
             description=(
-                f"{EMOJIS['developer']} "
-                f"Cybersecurity & OSINT framework "
-                f"developed by **SYN606**\n\n"
+                f"{EMOJIS['music']} "
+                f"High quality Discord music experience\n\n"
                 f"{EMOJIS['arrow_point']} "
                 f"Prefix: `{PREFIX}`\n"
                 f"{EMOJIS['message']} "
-                f"Use `{PREFIX} help` "
-                f"to explore modules\n\n"
+                f"Use `{PREFIX}help` "
+                f"to view all commands\n\n"
                 f"{EMOJIS['green_dot']} "
-                f"Capabilities:\n"
-                f"> Passive Reconnaissance\n"
-                f"> Threat Intelligence\n"
-                f"> OSINT Collection\n"
-                f"> Exposure Analysis\n"
-                f"> Infrastructure Monitoring\n"
-                f"> Moderation Operations\n\n"
-                f"{EMOJIS['warning']} "
-                f"Some traces never disappear.\n\n"
-                f"{EMOJIS['github']} "
-                f"https://syn606.pages.dev"
+                f"Features:\n"
+                f"> 24/7 Music Playback\n"
+                f"> Fast & Stable Streaming\n"
+                f"> Queue Management\n"
+                f"> Playlist Support\n"
+                f"> Crystal Clear Audio\n"
+                f"> Multi-Server Music System\n"
+                f"> Slash Command Support\n\n"
+                f"{EMOJIS['music']} "
+                f"Now playing the best vibes.\n\n"
+                f"{EMOJIS['developer']} "
+                f"Developed with ❤️ for music lovers by `You Know Who`"
             ),
             level="INFO",
             footer=(f"Requested by {message.author}"),
