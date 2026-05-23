@@ -4,30 +4,18 @@ from database.models import GuildConfig
 
 class GuildCRUD(BaseCRUD):
     model = GuildConfig
-
     # GET OR CREATE GUILD
     @classmethod
     async def get_or_create(cls, guild_id: int | str):
-
-        guild = await cls.get(
-            guild_id=str(guild_id),
-        )
-
+        guild = await cls.get(guild_id=str(guild_id), )
         if guild:
             return guild
-
-        return await cls.create(
-            guild_id=str(guild_id),
-        )
+        return await cls.create(guild_id=str(guild_id), )
 
     # GET PREFIX
     @classmethod
     async def get_prefix(cls, guild_id: int | str):
-
-        guild = await cls.get_or_create(
-            guild_id,
-        )
-
+        guild = await cls.get_or_create(guild_id, )
         return guild.prefix  # type: ignore
 
     # SET PREFIX
@@ -37,7 +25,6 @@ class GuildCRUD(BaseCRUD):
         guild_id: int | str,
         prefix: str,
     ):
-
         return await cls.update(
             {"guild_id": str(guild_id)},
             {"prefix": prefix},
@@ -49,11 +36,7 @@ class GuildCRUD(BaseCRUD):
         cls,
         guild_id: int | str,
     ):
-
-        guild = await cls.get_or_create(
-            guild_id,
-        )
-
+        guild = await cls.get_or_create(guild_id, )
         return guild.dj_role  # type: ignore
 
     # SET DJ ROLE
@@ -75,21 +58,12 @@ class GuildCRUD(BaseCRUD):
         cls,
         guild_id: int | str,
     ):
-
-        guild = await cls.get_or_create(
-            guild_id,
-        )
-
+        guild = await cls.get_or_create(guild_id)
         return guild.default_volume  # type: ignore
 
     # SET DEFAULT VOLUME
     @classmethod
-    async def set_volume(
-        cls,
-        guild_id: int | str,
-        volume: int,
-    ):
-
+    async def set_volume(cls, guild_id: int | str, volume: int):
         return await cls.update(
             {"guild_id": str(guild_id)},
             {"default_volume": volume},
@@ -97,26 +71,12 @@ class GuildCRUD(BaseCRUD):
 
     # GET 24/7 MODE
     @classmethod
-    async def is_247_enabled(
-        cls,
-        guild_id: int | str,
-    ):
-
-        guild = await cls.get_or_create(
-            guild_id,
-        )
-
+    async def is_247_enabled(cls, guild_id: int | str):
+        guild = await cls.get_or_create(guild_id)
         return guild.twenty_four_seven  # type: ignore
 
     # TOGGLE 24/7 MODE
     @classmethod
-    async def set_247(
-        cls,
-        guild_id: int | str,
-        state: bool,
-    ):
-
-        return await cls.update(
-            {"guild_id": str(guild_id)},
-            {"twenty_four_seven": state},
-        )
+    async def set_247(cls, guild_id: int | str, state: bool):
+        return await cls.update({"guild_id": str(guild_id)},
+                                {"twenty_four_seven": state})

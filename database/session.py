@@ -5,12 +5,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from database.base import engine
 from config import settings
 
-log = logging.getLogger("imposter.db")
-
-SessionLocal = async_sessionmaker(
-    bind=engine,
-    expire_on_commit=False,
-)
+log = logging.getLogger("DV-Music.db")
+SessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False)
 
 
 async def get_session():

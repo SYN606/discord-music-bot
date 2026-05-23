@@ -7,6 +7,7 @@ from config.prefix import PREFIX
 
 
 class BotMention(commands.Cog):
+
     def __init__(self, bot):
         self.bot = bot
         # User cooldown cache
@@ -15,10 +16,7 @@ class BotMention(commands.Cog):
         self.cooldown_time = 15
 
     @commands.Cog.listener()
-    async def on_message(
-        self,
-        message: discord.Message,
-    ):
+    async def on_message(self, message: discord.Message):
 
         # Ignore bots
         if message.author.bot:
@@ -29,10 +27,8 @@ class BotMention(commands.Cog):
             return
 
         # Trigger only on pure mention
-        if message.content.strip() not in (
-            f"<@{self.bot.user.id}>",
-            f"<@!{self.bot.user.id}>",
-        ):
+        if message.content.strip() not in (f"<@{self.bot.user.id}>",
+                                           f"<@!{self.bot.user.id}>"):
             return
 
         # Cooldown system
@@ -64,16 +60,12 @@ class BotMention(commands.Cog):
                 f"{EMOJIS['music']} "
                 f"Now playing the best vibes.\n\n"
                 f"{EMOJIS['developer']} "
-                f"Developed with ❤️ for music lovers by `You Know Who`"
-            ),
+                f"Developed with ❤️ for music lovers by `You Know Who`"),
             level="INFO",
             footer=(f"Requested by {message.author}"),
         )
 
-        await message.reply(
-            embed=embed,
-            mention_author=False,
-        )
+        await message.reply(embed=embed, mention_author=False)
 
 
 async def setup(bot):
