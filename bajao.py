@@ -1,20 +1,17 @@
-import os
 import logging
+import os
 import traceback
-
 import discord
+import wavelink
 from discord.ext import commands
-
 from config import settings
+from config.lavalink import connect_lavalink
 from config.prefix import dynamic_prefix, normalize
-
 from database.init import init_db
 
-
-# Validate settings
+# VALIDATE SETTINGS
 try:
     settings.validate()
-
     TOKEN = settings.TOKEN
     SYNC_COMMANDS = settings.SYNC_COMMANDS
 
@@ -24,13 +21,9 @@ except Exception as e:
     print("\nFix your .env file and restart.\n")
     raise SystemExit(1)
 
-
-# Logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-)
-logger = logging.getLogger("imposter")
+# LOGGING
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger("dvmusic", )
 
 
 def log(message: str):
@@ -41,36 +34,53 @@ def log_error(message: str):
     logger.error(message)
 
 
-# Intents
+# INTENTS
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+intents.voice_states = True
 
 
-# Bot
-class ImposterBot(commands.Bot):
+# BOT
+class DVMusic(commands.Bot):
+
     def __init__(self):
-        super().__init__(
-            command_prefix=dynamic_prefix,
-            intents=intents,
-            help_command=None,
-        )
+        super().__init__(command_prefix=dynamic_prefix,
+                         intents=intents,
+                         help_command=None)
 
+    # STARTUP
     async def setup_hook(self):
-
-        # Initialize database
+        # DATABASE
         try:
-            await init_db()
 
+            await init_db()
             log("✓ Database initialized")
+
         except Exception as e:
+
             log_error(f"Database initialization failed → {e}")
             if settings.is_dev():
                 traceback.print_exc()
-        # Load extensions
+
+        # LAVALINK
+        try:
+
+            await connect_lavalink(self, )
+            log("✓ Lavalink initialized")
+
+        except Exception as e:
+            log_error(f"Lavalink initialization failed → {e}")
+
+            if settings.is_dev():
+                traceback.print_exc()
+
+        # LOAD EXTENSIONS
         await self.load_extensions()
-        # Sync slash commands
+
+        # SYNC SLASH COMMANDS
         if SYNC_COMMANDS:
+
             try:
                 await self.tree.sync()
                 log("✓ Slash commands synced")
@@ -80,32 +90,30 @@ class ImposterBot(commands.Bot):
                 if settings.is_dev():
                     traceback.print_exc()
 
+    # LOAD COGS
     async def load_extensions(self):
-        folders = (
-            "cmd",
-            "manager.handlers",
-            "manager.startups",
-        )
+        folders = ("cmd", "manager.handlers", "manager.startups")
         for base in folders:
             path = base.replace(".", os.sep)
+
             if not os.path.isdir(path):
                 log(f"Missing folder: {path}")
                 continue
+
             for root, _, files in os.walk(path):
                 for file in files:
                     if not file.endswith(".py"):
                         continue
                     if file.startswith("__"):
                         continue
-                    module = (
-                        os.path.join(root, file)
-                        .replace("\\", ".")
-                        .replace("/", ".")
-                        .replace(".py", "")
-                    )
+                    module = (os.path.join(
+                        root,
+                        file,
+                    ).replace("\\", ".").replace("/", ".").replace(".py", ""))
                     try:
+
                         log(f"Loading: {module}")
-                        await self.load_extension(module)
+                        await self.load_extension(module, )
                         log(f"✓ Loaded {module}")
 
                     except Exception as e:
@@ -113,34 +121,48 @@ class ImposterBot(commands.Bot):
                         if settings.is_dev():
                             traceback.print_exc()
 
+    # READY EVENT
     async def on_ready(self):
-        log(
-            f"\nLogged in as {self.user} ({self.user.id})"  # type: ignore
-        )
-        log("Imposter is ready\n")
+        log(f"\nLogged in as "
+            f"{self.user} "
+            f"({self.user.id})"  # type: ignore
+            )
+        log("DV-Music is ready\n")
+
+        # LAVALINK STATUS
+        try:
+            nodes = wavelink.Pool.nodes
+            if nodes:
+                log(f"✓ Lavalink node connected "
+                    f"({len(nodes)} active)")
+
+            else:
+                log_error("✗ No Lavalink nodes connected")
+        except Exception:
+            pass
+
+        # COMMAND LIST
         print("=== COMMANDS LOADED ===")
         for command in self.commands:
             print(f"- {command.name}")
 
+    # MESSAGE HANDLER
     async def on_message(self, message: discord.Message):
-        # Ignore bots and DMs
-        if message.author.bot or not message.guild:
+        # IGNORE BOTS / DMS
+        if (message.author.bot or not message.guild):
             return
-        # Normalize prefixes
+
+        # NORMALIZE PREFIXES
         try:
             message.content = normalize(message.content)
         except Exception as e:
             log_error(f"[NORMALIZE ERROR] {e}")
             if settings.is_dev():
                 traceback.print_exc()
-        await self.process_commands(message)
+        await self.process_commands(message, )
 
-    # Global command error handler
-    async def on_command_error(
-        self,
-        ctx: commands.Context,
-        error: Exception,
-    ):
+    # GLOBAL COMMAND ERROR
+    async def on_command_error(self, ctx: commands.Context, error: Exception):
         log_error(f"[COMMAND ERROR] {error}")
         if settings.is_dev():
             traceback.print_exc()
@@ -149,28 +171,52 @@ class ImposterBot(commands.Bot):
         except Exception:
             pass
 
+    # WAVELINK TRACK START
+    async def on_wavelink_track_start(
+        self,
+        payload: wavelink.TrackStartEventPayload,
+    ):
+        player = payload.player
+        if not player:
+            return
+        track = payload.track
+        if not track:
+            return
+        log(f"[MUSIC] "
+            f"{track.title}")
 
-# Entrypoint
+    # WAVELINK NODE READY
+    async def on_wavelink_node_ready(
+        self,
+        payload: wavelink.NodeReadyEventPayload,
+    ):
+        log(f"✓ Lavalink node ready → "
+            f"{payload.node.identifier}")
+
+
+# ENTRYPOINT
 def main():
-    bot = ImposterBot()
+    bot = DVMusic()
     try:
-        log("Starting bot...\n")
+        log("Starting DV-Music...\n")
         bot.run(TOKEN)  # type: ignore
 
     except discord.errors.PrivilegedIntentsRequired:
         print("\n[INTENTS ERROR]")
-        print("Enable these in Developer Portal:")
+        print("Enable these in "
+              "Developer Portal:")
         print("- MESSAGE CONTENT INTENT")
-        print("- SERVER MEMBERS INTENT\n")
+        print("- SERVER MEMBERS INTENT")
+        print("- VOICE STATE INTENT\n")
 
     except KeyboardInterrupt:
         log("Shutting down gracefully...")
         try:
-            if bot.loop and not bot.loop.is_closed():
+            if (bot.loop and not bot.loop.is_closed()):
                 bot.loop.run_until_complete(bot.close())
-
         except Exception:
             pass
+
     except Exception as e:
         log_error(f"Bot crashed → {e}")
         if settings.is_dev():
