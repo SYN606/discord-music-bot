@@ -1,24 +1,19 @@
 from __future__ import annotations
-
 from typing import cast
-
 import discord
 import wavelink
-
 from config.emojis import EMOJIS
 from manager.handlers.player_manager import PlayerManager
+from ui.views.queue_paginator import QueuePaginator
 
 
 class PlayerControls(discord.ui.View):
-
     def __init__(self):
-
         super().__init__(timeout=None)
 
     # GET PLAYER
     def get_player(self,
                    interaction: discord.Interaction) -> wavelink.Player | None:
-
         return cast(
             wavelink.Player | None,
             interaction.guild.voice_client if interaction.guild else None)
@@ -26,162 +21,107 @@ class PlayerControls(discord.ui.View):
     # VALIDATE
     async def validate(
             self, interaction: discord.Interaction) -> wavelink.Player | None:
-
         player = self.get_player(interaction)
-
         if not player:
-
-            embed = discord.Embed(color=0x5865F2)
-
-            embed.description = (f"{EMOJIS['fail']} "
-                                 f"**No Active Player**")
-
-            await interaction.response.send_message(embed=embed,
+            await interaction.response.send_message(embed=discord.Embed(
+                color=0x5865F2,
+                description=(f"{EMOJIS['fail']} "
+                             f"No active player found.")),
                                                     ephemeral=True)
-
             return None
-
         member = cast(discord.Member, interaction.user)
-
         if not member.voice:
-
-            embed = discord.Embed(color=0x5865F2)
-
-            embed.description = (f"{EMOJIS['warning']} "
-                                 f"Join a voice channel first.")
-
-            await interaction.response.send_message(embed=embed,
+            await interaction.response.send_message(embed=discord.Embed(
+                color=0x5865F2,
+                description=(f"{EMOJIS['warning']} "
+                             f"Join a voice channel first.")),
                                                     ephemeral=True)
 
             return None
-
-        if not player.channel:
-
-            return None
-
-        if member.voice.channel.id != player.channel.id:  # type: ignore
-
-            embed = discord.Embed(color=0x5865F2)
-
-            embed.description = (f"{EMOJIS['warning']} "
-                                 f"You must be in the same voice channel.")
-
-            await interaction.response.send_message(embed=embed,
+        if (player.channel and member.voice.channel.id  # type: ignore
+                != player.channel.id):
+            await interaction.response.send_message(embed=discord.Embed(
+                color=0x5865F2,
+                description=(f"{EMOJIS['warning']} "
+                             f"You must be in the same voice channel.")),
                                                     ephemeral=True)
-
             return None
-
         return player
 
-    # PAUSE / RESUME
     @discord.ui.button(emoji=EMOJIS["pause"],
                        style=discord.ButtonStyle.secondary,
-                       custom_id="music_pause_resume")
+                       row=0)
     async def pause_resume(self, interaction: discord.Interaction,
                            button: discord.ui.Button):
-
         player = await self.validate(interaction)
 
         if not player:
             return
-
-        # RESUME
         if player.paused:
-
             await player.pause(False)
-
             button.emoji = EMOJIS["pause"]
 
-            embed = discord.Embed(color=0x5865F2)
+        else:
+            await player.pause(True)
+            button.emoji = EMOJIS["play"]
+        current = player.current
+        if not current:
+            return
 
-            embed.description = (f"{EMOJIS['play']} "
-                                 f"**Playback Resumed**")
-
-            return await interaction.response.send_message(embed=embed,
-                                                           ephemeral=True)
-
-        # PAUSE
-        await player.pause(True)
-
-        button.emoji = EMOJIS["play"]
-
-        embed = discord.Embed(color=0x5865F2)
-
-        embed.description = (f"{EMOJIS['pause']} "
-                             f"**Playback Paused**")
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        embed = PlayerManager.build_now_playing(player, current)
+        await interaction.response.edit_message(embed=embed, view=self)
 
     # SKIP
     @discord.ui.button(emoji=EMOJIS["skip"],
                        style=discord.ButtonStyle.primary,
-                       custom_id="music_skip")
+                       row=0)
     async def skip(self, interaction: discord.Interaction,
                    button: discord.ui.Button):
-
         player = await self.validate(interaction)
-
         if not player:
             return
-
-        current = player.current
-
         await player.skip()
+        current = player.current
+        if not current:
+            embed = discord.Embed(color=0x5865F2)
+            embed.description = (f"{EMOJIS['warning']} "
+                                 f"Queue ended.")
+            return await interaction.response.edit_message(embed=embed,
+                                                           view=None)
 
-        embed = discord.Embed(color=0x5865F2)
-
-        embed.description = (f"{EMOJIS['skip']} "
-                             f"Skipped "
-                             f"**{current.title if current else 'track'}**")
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
+        embed = PlayerManager.build_now_playing(player, current)
+        await interaction.response.edit_message(embed=embed, view=self)
     # QUEUE
     @discord.ui.button(emoji=EMOJIS["queue"],
                        style=discord.ButtonStyle.success,
-                       custom_id="music_queue")
+                       row=0)
     async def queue(self, interaction: discord.Interaction,
                     button: discord.ui.Button):
-
         player = await self.validate(interaction)
-
         if not player:
             return
+        view = QueuePaginator(player=player, author_id=interaction.user.id)
+        await interaction.response.send_message(embed=view.build_embed(),
+                                                view=view,
+                                                ephemeral=True)
 
-        if player.queue.is_empty:
+    # REFRESH
+    @discord.ui.button(emoji="🔄", style=discord.ButtonStyle.secondary, row=0)
+    async def refresh(self, interaction: discord.Interaction,
+                      button: discord.ui.Button):
+        player = await self.validate(interaction)
+        if not player:
+            return
+        current = player.current
+        if not current:
+            return
+        embed = PlayerManager.build_now_playing(player, current)
+        await interaction.response.edit_message(embed=embed, view=self)
 
-            embed = discord.Embed(color=0x5865F2)
-
-            embed.description = (f"{EMOJIS['warning']} "
-                                 f"Queue is empty.")
-
-            return await interaction.response.send_message(embed=embed,
-                                                           ephemeral=True)
-
-        entries = []
-
-        for index, track in enumerate(player.queue, start=1):
-
-            entries.append(f"`{index}.` "
-                           f"{track.title}")
-
-            if index >= 10:
-                break
-
-        embed = discord.Embed(color=0x5865F2)
-
-        embed.description = (f"{EMOJIS['queue']} "
-                             f"**Current Queue**\n\n"
-                             f"{chr(10).join(entries)}")
-
-        embed.set_footer(text=f"{player.queue.count} tracks queued")
-
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-
-    # STOP
+    # LEAVE
     @discord.ui.button(emoji=EMOJIS["leave"],
                        style=discord.ButtonStyle.danger,
-                       custom_id="music_leave")
+                       row=0)
     async def leave(self, interaction: discord.Interaction,
                     button: discord.ui.Button):
 
@@ -194,9 +134,14 @@ class PlayerControls(discord.ui.View):
 
         await player.disconnect()
 
+        # DISABLE BUTTONS
+        for item in self.children:
+
+            item.disabled = True  # type: ignore
+
         embed = discord.Embed(color=0x5865F2)
 
         embed.description = (f"{EMOJIS['leave']} "
                              f"Disconnected from voice channel.")
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.edit_message(embed=embed, view=self)

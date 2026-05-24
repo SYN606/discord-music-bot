@@ -94,34 +94,42 @@ class PlayerManager:
     @staticmethod
     def build_now_playing(player: wavelink.Player,
                           track: wavelink.Playable) -> discord.Embed:
+
         position = getattr(player, "position", 0)
-        progress = PlayerManager.progress_bar(position, track.length)
+        progress = PlayerManager.progress_bar(position, track.length, 16)
         requester = (
             f"<@{track.extras.requester}>" if hasattr(track, "extras")
             and getattr(track.extras, "requester", None) else "Unknown")
+
         queue_count = player.queue.count
+        current_time = (PlayerManager.format_time(position))
+        total_time = (PlayerManager.format_time(track.length))
         embed = discord.Embed(color=0x5865F2)
+        embed.set_image(url=("https://media.tenor.com/"
+                             "MWO7M1N9vCIAAAAC/"
+                             "music-wave.gif"))
+        # MAIN DESCRIPTION
         embed.description = (f"{EMOJIS['music_player']} "
-                             f"**Now Playing**\n\n"
-                             f"## {track.title}\n"
+                             f"**DV-Music Cassette**\n\n"
+                             f"## {track.title[:45]}\n"
                              f"{EMOJIS['waveform']} "
-                             f"`{track.author}`\n\n"
-                             f"`{PlayerManager.format_time(position)}` "
+                             f"`{track.author[:28]}`\n\n"
+                             f"`{current_time}` "
                              f"{progress} "
-                             f"`{PlayerManager.format_time(track.length)}`\n\n"
-                             f"{EMOJIS['queue']} "
-                             f"`{queue_count}` queued "
-                             f"• "
+                             f"`{total_time}`\n\n"
                              f"{EMOJIS['volume']} "
-                             f"`{player.volume}%`\n\n"
+                             f"`{player.volume}%` "
+                             f"• "
+                             f"{EMOJIS['queue']} "
+                             f"`{queue_count}`\n\n"
                              f"{EMOJIS['developer']} "
                              f"{requester}")
-
-        # THUMBNAIL
         artwork = getattr(track, "artwork", None)
         if artwork:
             embed.set_thumbnail(url=artwork)
-        embed.set_footer(text="DV-Music Player")
+        embed.set_footer(text=("DV-Music • "
+                               "Cassette Experience"))
+
         return embed
 
     # BUILD QUEUE EMBED

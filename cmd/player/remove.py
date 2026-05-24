@@ -37,7 +37,7 @@ class Remove(commands.Cog):
 
         # TARGET TRACK
         track = queue_list[index - 1]
-        removed = QueueManager.remove_track(player, track)
+        removed = QueueManager.remove_track(player, track) # type: ignore
 
         if not removed:
 
