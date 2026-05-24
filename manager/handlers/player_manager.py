@@ -8,12 +8,11 @@ from utils.respond import Respond
 
 
 class PlayerManager:
-    # GET / CREATE PLAYER
+
     @staticmethod
     async def get_player(ctx) -> wavelink.Player | None:
         response = Respond(ctx=ctx)
         member = cast(discord.Member, ctx.author)
-        # USER NOT IN VC
         if not member.voice:
             await response.warning("Voice Channel Required",
                                    "You must join a voice channel first.")
@@ -22,11 +21,10 @@ class PlayerManager:
         if channel is None:
             return None
         player = cast(wavelink.Player | None, ctx.voice_client)
-
-        # CONNECT BOT
         if player is None:
             player = await channel.connect(cls=wavelink.Player, self_deaf=True)
             await player.set_volume(DEFAULT_VOLUME)
+            player.home = ctx.channel  # type: ignore
         return player
 
     # VALIDATE ACTIVE PLAYER
@@ -38,27 +36,20 @@ class PlayerManager:
             await response.warning("Nothing Playing",
                                    "No active player found.")
             return None
-
         member = cast(discord.Member, ctx.author)
-
-        # USER NOT IN VC
         if not member.voice:
             await response.warning("Voice Channel Required",
                                    "You must join a voice channel first.")
             return None
 
-        # PLAYER NO CHANNEL
         if not player.channel:
             await response.warning("Voice Channel Missing",
                                    "Bot is not connected to a voice channel.")
             return None
-
-        # DIFFERENT VC
         if member.voice.channel.id != player.channel.id:  # type: ignore
             await response.warning(
                 "Wrong Voice Channel",
                 "You must be in the same voice channel as the bot.")
-
             return None
         return player
 
@@ -72,25 +63,30 @@ class PlayerManager:
             return (f"{hours}:"
                     f"{minutes:02}:"
                     f"{seconds:02}")
+
         return (f"{minutes}:"
                 f"{seconds:02}")
 
     # PROGRESS BAR
     @staticmethod
     def progress_bar(position: int, length: int, size: int = 14) -> str:
+
         if length <= 0:
-            return "─" * size
+            return "▬" * size
         filled = int((position / length) * size)
         filled = min(filled, size - 1)
         bar = ""
+
         for index in range(size):
             if index == filled:
-                bar += "◉"
+                bar += "🔘"
             else:
-                bar += "─"
+
+                bar += "▬"
+
         return bar
 
-    # BUILD PLAYER EMBED
+    # NOW PLAYING EMBED
     @staticmethod
     def build_now_playing(player: wavelink.Player,
                           track: wavelink.Playable) -> discord.Embed:
@@ -105,34 +101,40 @@ class PlayerManager:
         current_time = (PlayerManager.format_time(position))
         total_time = (PlayerManager.format_time(track.length))
         embed = discord.Embed(color=0x5865F2)
-        embed.set_image(url=("https://media.tenor.com/"
-                             "MWO7M1N9vCIAAAAC/"
-                             "music-wave.gif"))
+
+        # BOT BANNER
+        try:
+            banner = (player.client.user.banner)  # type: ignore
+            if banner:
+                embed.set_image(url=banner.url)
+
+        except Exception:
+            pass
+
         # MAIN DESCRIPTION
         embed.description = (f"{EMOJIS['music_player']} "
-                             f"**DV-Music Cassette**\n\n"
+                             f"**Bajao Cassette**\n\n"
                              f"## {track.title[:45]}\n"
                              f"{EMOJIS['waveform']} "
                              f"`{track.author[:28]}`\n\n"
-                             f"`{current_time}` "
-                             f"{progress} "
+                             f"`{current_time}`\n"
+                             f"{progress}\n"
                              f"`{total_time}`\n\n"
                              f"{EMOJIS['volume']} "
-                             f"`{player.volume}%` "
-                             f"• "
+                             f"`{player.volume}%`\n"
                              f"{EMOJIS['queue']} "
-                             f"`{queue_count}`\n\n"
+                             f"`{queue_count}` queued\n\n"
                              f"{EMOJIS['developer']} "
                              f"{requester}")
+
+        # TRACK ARTWORK
         artwork = getattr(track, "artwork", None)
         if artwork:
             embed.set_thumbnail(url=artwork)
-        embed.set_footer(text=("DV-Music • "
-                               "Cassette Experience"))
-
+        embed.set_footer(text="Bajao • Cassette Experience")
         return embed
 
-    # BUILD QUEUE EMBED
+    # QUEUE EMBED
     @staticmethod
     def build_queue_embed(player: wavelink.Player) -> discord.Embed:
         embed = discord.Embed(color=0x5865F2)
@@ -140,15 +142,21 @@ class PlayerManager:
             embed.description = (f"{EMOJIS['warning']} "
                                  f"Queue is empty.")
             return embed
-        entries = []
+        entries: list[str] = []
         for index, track in enumerate(player.queue, start=1):
+            duration = (PlayerManager.format_time(track.length))
             entries.append(f"`{index}.` "
-                           f"{track.title}")
+                           f"{track.title[:40]}\n"
+                           f"> `{duration}` "
+                           f"• "
+                           f"`{track.author[:20]}`")
             if index >= 10:
                 break
         embed.description = (f"{EMOJIS['queue']} "
-                             f"**Current Queue**\n\n"
+                             f"**Bajao Queue**\n\n"
                              f"{chr(10).join(entries)}")
-
-        embed.set_footer(text=f"{player.queue.count} tracks queued")
+        current = player.current
+        if (current and getattr(current, "artwork", None)):
+            embed.set_thumbnail(url=current.artwork)
+        embed.set_footer(text=(f"{player.queue.count} tracks queued"))
         return embed

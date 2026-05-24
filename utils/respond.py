@@ -21,32 +21,38 @@ class Respond:
                         content: str | None = None,
                         **kwargs):
         payload: dict[str, Any] = {}
-        # ONLY INCLUDE VALID VALUES
+        # EMBED
         if embed is not None:
             payload["embed"] = embed
+        # CONTENT
         if content is not None:
             payload["content"] = content
+        # EXTRA KWARGS
         payload.update(kwargs)
 
         try:
-            # PREFIX COMMANDS
+            # PREFIX COMMAND
             if self.ctx:
                 return await self.ctx.send(**payload)
 
-            # INTERACTIONS
+            # INTERACTION
             if self.interaction:
-                # FOLLOWUP
                 if self.interaction.response.is_done():
                     return await self.interaction.followup.send(**payload)
-
                 # INITIAL RESPONSE
-                return await self.interaction.response.send_message(**payload)
+                await self.interaction.response.send_message(**payload)
 
-            # MANUAL CHANNEL SEND
+                try:
+                    return await self.interaction.original_response()
+                except Exception:
+                    return None
+
+            # CHANNEL SEND
             if self.channel:
                 return await self.channel.send(**payload)
 
         except Exception as e:
+
             # LAST RESORT FALLBACK
             try:
                 error_text = (f"Response Error: {e}")
@@ -70,29 +76,31 @@ class Respond:
                    content: str | None = None,
                    embed: discord.Embed | None = None,
                    **kwargs):
+
         try:
             # AUTO BUILD EMBED
-            if embed is None and (title is not None
-                                  or description is not None):
+            if (embed is None
+                    and (title is not None or description is not None)):
                 embed = make_embed(title=title or "Response",
                                    description=description,
                                    level=level,
                                    fields=fields,
-                                   footer=footer,
-                                   **kwargs)
+                                   footer=footer)
+
         except Exception as e:
-            # EMBED FAILURE FALLBACK
             content = (content or (f"{title or ''}\n"
                                    f"{description or ''}\n\n"
                                    f"Error: {e}"))
+
             embed = None
-        return await self._dispatch(embed=embed, content=content)
+        return await self._dispatch(embed=embed, content=content, **kwargs)
 
     # SUCCESS
     async def success(self,
                       title: str,
                       description: str | None = None,
                       **kwargs):
+
         return await self.send(title=title,
                                description=description,
                                level="SUCCESS",
@@ -125,7 +133,7 @@ class Respond:
                                level="INFO",
                                **kwargs)
 
-    # MUSIC STYLE LOADING
+    # LOADING
     async def loading(self,
                       title: str = "Loading...",
                       description: str | None = None,
@@ -135,17 +143,17 @@ class Respond:
                                level="MUSIC",
                                **kwargs)
 
-    # RAW MESSAGE
+    # RAW
     async def raw(self, content: str, **kwargs):
         return await self._dispatch(content=content, **kwargs)
 
-    # EDIT MESSAGE
     async def edit(self,
                    message: discord.Message,
                    *,
                    embed: discord.Embed | None = None,
                    content: str | None = None,
                    view=None):
+
         try:
             payload = {}
             if embed is not None:
@@ -155,5 +163,6 @@ class Respond:
             if view is not None:
                 payload["view"] = view
             return await message.edit(**payload)
+
         except Exception:
             return None

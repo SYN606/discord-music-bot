@@ -1,7 +1,9 @@
 from __future__ import annotations
+
 import discord
 import wavelink
 from discord.ext import commands
+
 from config.emojis import EMOJIS
 from manager.handlers.player_manager import PlayerManager
 from manager.handlers.queue_manager import QueueManager
@@ -13,34 +15,49 @@ from utils.respond import Respond
 class Player(commands.Cog):
 
     def __init__(self, bot):
+
         self.bot = bot
 
-    # DELETE USER COMMAND
+    # CLEANUP
     async def cleanup(self, ctx: commands.Context):
 
         try:
+
             await ctx.message.delete()
+
         except Exception:
             pass
 
     # SEARCH TRACK
     async def search_track(self, query: str):
+
         query = " ".join(query.strip().split())
+
+        # URL SEARCH
+        if query.startswith(("http://", "https://")):
+
+            return await wavelink.Playable.search(query, source="youtube")
+
+        # CLEAN SEARCH
         garbage = ("(lyrics)", "[lyrics]", "lyrics", "official video",
                    "official audio", "audio", "video")
 
         cleaned = query.lower()
 
         for item in garbage:
+
             cleaned = cleaned.replace(item, "")
+
         query = cleaned.strip()
 
-        # URL SEARCH
-        if query.startswith(("http://", "https://")):
-            return await wavelink.Playable.search(query)
+        # YOUTUBE MUSIC SEARCH
         result = await wavelink.Playable.search(f"ytmsearch:{query}")
+
+        # FALLBACK
         if not result:
+
             result = await wavelink.Playable.search(f"ytsearch:{query}")
+
         return result
 
     # PLAY
@@ -50,42 +67,70 @@ class Player(commands.Cog):
     async def play(self, ctx: commands.Context, *, query: str):
 
         response = Respond(ctx=ctx)
+
         # CLEANUP
         await self.cleanup(ctx)
-        # PLAYER
+
+        # GET PLAYER
         player = await PlayerManager.get_player(ctx)
+
         if not player:
             return
 
+        # STORE HOME CHANNEL
+        player.home = ctx.channel  # type: ignore
+
         # LOADING EMBED
         loading_embed = discord.Embed(color=0x5865F2)
+
         loading_embed.description = (f"{EMOJIS['rounded_loading']} "
-                                     f"Searching for tracks...")
-        loading = await response.send(embed=loading_embed)
+                                     f"Searching tracks...")
+
+        loading_message = await ctx.send(embed=loading_embed)
 
         # SEARCH
         try:
+
             result = await self.search_track(query)
 
         except Exception:
+
             embed = discord.Embed(color=0x5865F2)
+
             embed.description = (f"{EMOJIS['fail']} "
                                  f"Failed to fetch search results.")
-            return await loading.edit(embed=embed)  # type: ignore
+
+            if isinstance(loading_message, discord.Message):
+
+                await loading_message.edit(embed=embed)
+
+            return
 
         # NO RESULTS
         if not result:
+
             embed = discord.Embed(color=0x5865F2)
+
             embed.description = (f"{EMOJIS['warning']} "
                                  f"No matching tracks found.")
-            return await loading.edit(embed=embed)  # type: ignore
+
+            if isinstance(loading_message, discord.Message):
+
+                await loading_message.edit(embed=embed)
+
+            return
 
         # PLAYLIST
         if isinstance(result, wavelink.Playlist):
+
             for track in result.tracks:
+
                 track.extras = {"requester": ctx.author.id}
+
                 await QueueManager.add_track(player, track)
+
             embed = discord.Embed(color=0x5865F2)
+
             embed.description = (f"{EMOJIS['playlist']} "
                                  f"**Playlist Added**\n\n"
                                  f"## {result.name[:45]}\n\n"
@@ -93,37 +138,62 @@ class Player(commands.Cog):
                                  f"`{len(result.tracks)}` tracks queued\n\n"
                                  f"{EMOJIS['developer']} "
                                  f"{ctx.author.mention}")
+
             artwork = getattr(result, "artwork", None)
+
             if artwork:
+
                 embed.set_thumbnail(url=artwork)
-            await loading.edit(embed=embed)  # type: ignore
+
+            embed.set_footer(text="Bajao Playlist System")
+
+            if isinstance(loading_message, discord.Message):
+
+                await loading_message.edit(embed=embed)
 
             # START PLAYER
             if not player.playing:
+
                 next_track = await QueueManager.get_next(player)
+
                 if next_track:
+
                     await player.play(next_track)
+
             return
 
         # TRACK
         track = (result[0] if isinstance(result, list) else result)
+
         if not track:
+
             embed = discord.Embed(color=0x5865F2)
+
             embed.description = (f"{EMOJIS['warning']} "
                                  f"No playable track found.")
-            return await loading.edit(embed=embed)  # type: ignore
+
+            if isinstance(loading_message, discord.Message):
+
+                await loading_message.edit(embed=embed)
+
+            return
+
         # REQUESTER
         track.extras = {"requester": ctx.author.id}
 
         # ADD TO QUEUE
         if player.playing:
+
             await QueueManager.add_track(player, track)
+
             queue_index = player.queue.count
+
             embed = discord.Embed(color=0x5865F2)
+
             embed.description = (
                 f"{EMOJIS['queue']} "
                 f"**Added To Queue**\n\n"
-                f"## {track.title[:45]}\n"
+                f"## {track.title[:45]}\n\n"
                 f"{EMOJIS['waveform']} "
                 f"`{track.author[:28]}`\n\n"
                 f"{EMOJIS['play']} "
@@ -136,83 +206,87 @@ class Player(commands.Cog):
             if artwork:
 
                 embed.set_thumbnail(url=artwork)
+
+            embed.set_footer(text="Bajao Queue System")
+
             view = QueueControls(player=player,
                                  queue_index=queue_index,
                                  requester_id=ctx.author.id)
-            return await loading.edit(embed=embed, view=view)  # type: ignore
+
+            if isinstance(loading_message, discord.Message):
+
+                await loading_message.edit(embed=embed, view=view)
+
+                view.message = loading_message
+
+            return
 
         # PLAY TRACK
         await player.play(track)
+
         embed = PlayerManager.build_now_playing(player, track)
-        view = PlayerControls()
-        await loading.edit(embed=embed, view=view)  # type: ignore
 
-    # PLAY ERROR
-    @play.error
-    async def play_error(self, ctx: commands.Context,
-                         error: commands.CommandError):
+        view = PlayerControls(player=player, requester_id=ctx.author.id)
 
-        response = Respond(ctx=ctx)
-        await self.cleanup(ctx)
+        if isinstance(loading_message, discord.Message):
 
-        # MISSING QUERY
-        if isinstance(error, commands.MissingRequiredArgument):
-            embed = discord.Embed(color=0x5865F2)
-            embed.description = (f"{EMOJIS['music_player']} "
-                                 f"**Play Music**\n\n"
-                                 f"{EMOJIS['warning']} "
-                                 f"You forgot to provide a song.\n\n"
-                                 f"{EMOJIS['queue']} "
-                                 f"**Examples**\n\n"
-                                 f"`dvm play perfect`\n"
-                                 f"`dvm play industry baby`\n"
-                                 f"`dvm play https://youtu.be/...`")
+            await loading_message.edit(embed=embed, view=view)
 
-            embed.set_footer(text="DV-Music Search System")
-            return await response.send(embed=embed)
-
-        # BAD ARGUMENT
-        if isinstance(error, commands.BadArgument):
-            return await response.warning(
-                "Invalid Query", "Could not understand your search query.")
-        return await response.error("Command Error", str(error))
+            view.message = loading_message
 
     # PAUSE
     @commands.hybrid_command(name="pause", description="Pause playback.")
     async def pause(self, ctx: commands.Context):
 
         await self.cleanup(ctx)
+
         response = Respond(ctx=ctx)
+
         player = await PlayerManager.validate_player(ctx)
 
         if not player:
             return
 
         if player.paused:
+
             return await response.warning("Already Paused",
                                           "Playback is already paused.")
 
         await player.pause(True)
-        await response.success("Playback Paused",
-                               "Music playback has been paused.")
+
+        embed = discord.Embed(color=0x5865F2)
+
+        embed.description = (f"{EMOJIS['pause']} "
+                             f"Playback paused.")
+
+        await response.send(embed=embed)
 
     # RESUME
     @commands.hybrid_command(name="resume", description="Resume playback.")
     async def resume(self, ctx: commands.Context):
 
         await self.cleanup(ctx)
+
         response = Respond(ctx=ctx)
+
         player = await PlayerManager.validate_player(ctx)
+
         if not player:
             return
 
         if not player.paused:
+
             return await response.warning("Not Paused",
                                           "Playback is not paused.")
 
         await player.pause(False)
-        await response.success("Playback Resumed",
-                               "Music playback has resumed.")
+
+        embed = discord.Embed(color=0x5865F2)
+
+        embed.description = (f"{EMOJIS['play']} "
+                             f"Playback resumed.")
+
+        await response.send(embed=embed)
 
     # SKIP
     @commands.hybrid_command(name="skip",
@@ -221,32 +295,47 @@ class Player(commands.Cog):
     async def skip(self, ctx: commands.Context):
 
         await self.cleanup(ctx)
+
         response = Respond(ctx=ctx)
+
         player = await PlayerManager.validate_player(ctx)
+
         if not player:
             return
+
         current = player.current
+
         if not current:
+
             return await response.warning("Nothing Playing",
                                           "No active track found.")
+
         await player.skip()
-        await response.success("Track Skipped",
-                               f"Skipped **{current.title[:45]}**")
+
+        embed = discord.Embed(color=0x5865F2)
+
+        embed.description = (f"{EMOJIS['skip']} "
+                             f"Skipped current track.")
+
+        await response.send(embed=embed)
 
     # STOP
     @commands.hybrid_command(name="stop", description="Stop playback.")
     async def stop(self, ctx: commands.Context):
+
         await self.cleanup(ctx)
         response = Respond(ctx=ctx)
         player = await PlayerManager.validate_player(ctx)
         if not player:
             return
-
         QueueManager.clear(player)
         await player.disconnect()
-        await response.success("Playback Stopped",
-                               "Disconnected from voice channel.")
+        embed = discord.Embed(color=0x5865F2)
+        embed.description = (f"{EMOJIS['stop']} "
+                             f"Playback stopped.")
+        await response.send(embed=embed)
 
 
 async def setup(bot):
+
     await bot.add_cog(Player(bot))

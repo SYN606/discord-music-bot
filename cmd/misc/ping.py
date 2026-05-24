@@ -32,7 +32,7 @@ class Ping(commands.Cog):
     # UPTIME
     def get_uptime(self):
 
-        delta = datetime.utcnow() - self.start_time
+        delta = (datetime.utcnow() - self.start_time)
 
         hours, remainder = divmod(delta.seconds, 3600)
 
@@ -51,6 +51,7 @@ class Ping(commands.Cog):
         return (f"{minutes}m "
                 f"{seconds}s")
 
+    # PING
     @commands.hybrid_command(name="ping", description="Display bot latency.")
     async def ping(self, ctx: commands.Context):
 
@@ -59,7 +60,7 @@ class Ping(commands.Cog):
         start = time.perf_counter()
 
         loading = await response.raw(f"{EMOJIS['rounded_loading']} "
-                                     f"Checking status...")
+                                     f"Checking Bajao status...")
 
         end = time.perf_counter()
 
@@ -77,22 +78,23 @@ class Ping(commands.Cog):
         # EMBED
         embed = make_embed(
             title=(f"{EMOJIS['music_player']} "
-                   f"DV-Music"),
+                   f"Bajao"),
             description=(f"{signal} "
                          f"`{api_latency}ms` "
                          f"API Latency"),
             level="INFO",
             fields=[
-                (("Message", str(EMOJIS["message"])), f"`{message_latency}ms`",
-                 True),
-                (("Uptime", str(EMOJIS["waveform"])), f"`{self.get_uptime()}`",
-                 True),
-                (("Memory", str(EMOJIS["volume"])), f"`{ram_usage}%`", True),
-                (("Servers", str(EMOJIS["music"])),
+                ("Message", f"{EMOJIS['message']} "
+                 f"`{message_latency}ms`", True),
+                ("Uptime", f"{EMOJIS['waveform']} "
+                 f"`{self.get_uptime()}`", True),
+                ("Memory", f"{EMOJIS['volume']} "
+                 f"`{ram_usage}%`", True),
+                ("Servers", f"{EMOJIS['music']} "
                  f"`{len(self.bot.guilds)}`", True),
             ],
             footer=(f"{self.bot.user.name} • "
-                    f"Music System"),
+                    f"Bajao Music System"),
         )
 
         if loading:
@@ -105,4 +107,5 @@ class Ping(commands.Cog):
 
 
 async def setup(bot):
+
     await bot.add_cog(Ping(bot))
