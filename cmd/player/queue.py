@@ -1,9 +1,8 @@
 from __future__ import annotations
-
 import discord
 from discord.ext import commands
-
 from config.emojis import EMOJIS
+from manager.basic_check import BasicChecks
 from manager.handlers.player_manager import PlayerManager
 from ui.views.queue_paginator import QueuePaginator
 from utils.respond import Respond
@@ -26,7 +25,7 @@ class Queue(commands.Cog):
     async def queue(self, ctx: commands.Context):
         await self.cleanup(ctx)
         response = Respond(ctx=ctx)
-        player = await PlayerManager.validate_player(ctx)
+        player = await BasicChecks.same_voice_channel(ctx)
         if not player:
             return
         if player.queue.is_empty:
@@ -36,11 +35,9 @@ class Queue(commands.Cog):
                 embed.description = ((embed.description or "") + "\n\n" +
                                      (f"{EMOJIS['warning']} "
                                       f"No upcoming tracks queued."))
-
                 return await response.send(embed=embed)
             return await response.warning("Empty Queue",
                                           "There are no queued tracks.")
-
         view = QueuePaginator(player=player, author_id=ctx.author.id)
         embed = view.build_embed()
         message = await response.send(embed=embed, view=view)

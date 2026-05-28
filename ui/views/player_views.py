@@ -19,7 +19,6 @@ class PlayerControls(discord.ui.View):
     # VALIDATE
     async def interaction_check(self, interaction: discord.Interaction):
         member = cast(discord.Member, interaction.user)
-
         # USER NOT IN VC
         if not member.voice:
             embed = discord.Embed(color=0x5865F2)
@@ -37,8 +36,12 @@ class PlayerControls(discord.ui.View):
             await interaction.response.send_message(embed=embed,
                                                     ephemeral=True)
             return False
+
+        # PLAYER VC
         if not self.player.channel:
             return False
+
+        # DIFFERENT VC
         if member.voice.channel.id != self.player.channel.id:  # type: ignore
             embed = discord.Embed(color=0x5865F2)
             embed.description = (f"{EMOJIS['warning']} "
@@ -48,7 +51,7 @@ class PlayerControls(discord.ui.View):
             return False
         return True
 
-    # UPDATE PLAYER UI
+    # REFRESH PLAYER
     async def refresh_player(self, interaction: discord.Interaction):
         current = self.player.current
         if not current:
@@ -61,21 +64,24 @@ class PlayerControls(discord.ui.View):
         await interaction.response.edit_message(embed=embed, view=self)
 
     # PAUSE / RESUME
-    @discord.ui.button(emoji="⏯", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(emoji=EMOJIS["pause"],
+                       style=discord.ButtonStyle.secondary)
     async def pause_resume(self, interaction: discord.Interaction,
                            button: discord.ui.Button):
         valid = await self.interaction_check(interaction)
         if not valid:
             return
+
         if self.player.paused:
             await self.player.pause(False)
-
+            button.emoji = EMOJIS["pause"]
         else:
             await self.player.pause(True)
+            button.emoji = EMOJIS["play"]
         await self.refresh_player(interaction)
 
     # SKIP
-    @discord.ui.button(emoji="⏭", style=discord.ButtonStyle.primary)
+    @discord.ui.button(emoji=EMOJIS["skip"], style=discord.ButtonStyle.primary)
     async def skip(self, interaction: discord.Interaction,
                    button: discord.ui.Button):
         valid = await self.interaction_check(interaction)
@@ -85,7 +91,7 @@ class PlayerControls(discord.ui.View):
         await self.refresh_player(interaction)
 
     # QUEUE
-    @discord.ui.button(emoji="☰", style=discord.ButtonStyle.success)
+    @discord.ui.button(emoji="🎵", style=discord.ButtonStyle.success)
     async def queue(self, interaction: discord.Interaction,
                     button: discord.ui.Button):
         valid = await self.interaction_check(interaction)
@@ -99,23 +105,25 @@ class PlayerControls(discord.ui.View):
                                                 ephemeral=True)
 
     # LOOP
-    @discord.ui.button(emoji="↻", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(emoji="🔁", style=discord.ButtonStyle.secondary)
     async def loop(self, interaction: discord.Interaction,
                    button: discord.ui.Button):
+
         valid = await self.interaction_check(interaction)
+
         if not valid:
             return
-
         if self.player.queue.mode == wavelink.QueueMode.loop:
             self.player.queue.mode = (wavelink.QueueMode.normal)
             button.style = (discord.ButtonStyle.secondary)
+
         else:
             self.player.queue.mode = (wavelink.QueueMode.loop)
             button.style = (discord.ButtonStyle.success)
         await interaction.response.edit_message(view=self)
 
     # DISCONNECT
-    @discord.ui.button(emoji="⏹", style=discord.ButtonStyle.danger)
+    @discord.ui.button(emoji=EMOJIS["leave"], style=discord.ButtonStyle.danger)
     async def leave(self, interaction: discord.Interaction,
                     button: discord.ui.Button):
         valid = await self.interaction_check(interaction)
@@ -123,7 +131,7 @@ class PlayerControls(discord.ui.View):
             return
         self.player.queue.clear()
         await self.player.disconnect()
-
+        # DISABLE BUTTONS
         for child in self.children:
             if isinstance(child, discord.ui.Button):
                 child.disabled = True
@@ -139,8 +147,10 @@ class PlayerControls(discord.ui.View):
             if isinstance(child, discord.ui.Button):
                 child.disabled = True
         if self.message:
+
             try:
                 await self.message.edit(view=self)
             except Exception:
                 pass
+
         self.stop()

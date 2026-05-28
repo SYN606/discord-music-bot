@@ -2,6 +2,7 @@ from __future__ import annotations
 import discord
 from discord.ext import commands
 from config.emojis import EMOJIS
+from manager.basic_check import BasicChecks
 from manager.handlers.player_manager import PlayerManager
 from manager.handlers.queue_manager import QueueManager
 from utils.respond import Respond
@@ -18,7 +19,6 @@ class Remove(commands.Cog):
         except Exception:
             pass
 
-    # REMOVE TRACK
     @commands.hybrid_command(
         name="remove",
         aliases=["rm"],
@@ -26,13 +26,12 @@ class Remove(commands.Cog):
     async def remove(self, ctx: commands.Context, index: int):
         await self.cleanup(ctx)
         response = Respond(ctx=ctx)
-        player = await PlayerManager.validate_player(ctx)
+        player = await BasicChecks.same_voice_channel(ctx)
         if not player:
             return
         if player.queue.is_empty:
             return await response.warning("Empty Queue",
                                           "There are no queued tracks.")
-
         queue_list = list(player.queue)
         if (index < 1 or index > len(queue_list)):
             return await response.warning(
@@ -41,8 +40,6 @@ class Remove(commands.Cog):
         if not removed:
             return await response.error("Removal Failed",
                                         "Failed to remove track from queue.")
-
-        # EMBED
         embed = discord.Embed(color=0x5865F2)
         duration = PlayerManager.format_time(removed.length)
         embed.description = (f"{EMOJIS['fail']} "
@@ -53,7 +50,6 @@ class Remove(commands.Cog):
                              f"`{removed.author[:28]}`\n\n"
                              f"{EMOJIS['play']} "
                              f"`{duration}`")
-
         artwork = getattr(removed, "artwork", None)
         if artwork:
             embed.set_thumbnail(url=artwork)
@@ -61,7 +57,6 @@ class Remove(commands.Cog):
                                f"Bajao Queue System"))
         await response.send(embed=embed)
 
-    # ERROR HANDLER
     @remove.error
     async def remove_error(self, ctx: commands.Context,
                            error: commands.CommandError):
@@ -77,12 +72,11 @@ class Remove(commands.Cog):
                                  f"{EMOJIS['arrow_point']} "
                                  f"`bajao rm 5`")
             return await response.send(embed=embed)
-
         if isinstance(error, commands.BadArgument):
             return await response.warning("Invalid Index",
                                           "Queue index must be a number.")
-
         return await response.error("Command Error", str(error))
+
 
 async def setup(bot):
     await bot.add_cog(Remove(bot))
